@@ -27,6 +27,9 @@ class FrontendJourneyTest {
     }
     @After fun restoreSettings() {
         runBlocking { originalSettings?.let { (compose.activity.application as LexiApplication).settingsRepository.replaceSettings(it) } }
+        // Restoring the theme schedules a recomposition; finish it before the
+        // activity rule destroys nested subcompositions.
+        compose.waitForIdle()
     }
 
     @Test fun profileSettingsThemeAndBackNavigation() {
