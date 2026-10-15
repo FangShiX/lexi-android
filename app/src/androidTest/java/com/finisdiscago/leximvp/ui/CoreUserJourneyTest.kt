@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import com.finisdiscago.leximvp.core.audio.AudioService
 import com.finisdiscago.leximvp.core.audio.AudioAvailability
 import com.finisdiscago.leximvp.core.scheduler.ReviewRating
@@ -214,8 +215,9 @@ class CoreUserJourneyTest {
         compose.onNodeWithTag(LexiTestTags.AudioFallback).assertIsDisplayed()
         compose.onNodeWithText("提示词：adapt").assertIsDisplayed()
         compose.onNodeWithText("输入单词").performTextInput("adapt")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
         compose.onNodeWithTag(LexiTestTags.ReviewReveal).performClick()
-        compose.onNodeWithTag(LexiTestTags.ReviewRateGood).performClick()
+        compose.onNodeWithTag(LexiTestTags.ReviewRateGood).performScrollTo().assertIsDisplayed().performClick()
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.runOnIdle { repository.recordedRating == ReviewRating.Good }
         }
