@@ -46,8 +46,12 @@ def tap(label, description_only=False):
     node = find(label, description_only=description_only)
     x1, y1, x2, y2 = map(int, re.findall(r"\d+", node.get("bounds", "")))
     assert x2 > x1 and y2 > y1, f"Empty touch target: {label}"
-    adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
-    time.sleep(0.5)
+    x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
+    with (OUT / "actions.txt").open("a") as actions:
+        actions.write(f"{label}: {x},{y}\n")
+    # Use a real press duration, including for animated custom navigation items.
+    adb("shell", "input", "touchscreen", "swipe", x, y, x, y, "100")
+    time.sleep(1)
 
 
 def capture(name):
