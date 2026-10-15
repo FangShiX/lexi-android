@@ -68,6 +68,9 @@ class FrontendJourneyTest {
     }
 
     @Test fun firstLibraryEntryReturnsToExistingLearningHome() {
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodesWithText("选择词书 / 添加单词").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("选择词书 / 添加单词").performScrollTo().performTouchInput { click() }
         compose.onNodeWithTag("navigation_books").assertIsSelected()
         compose.onNodeWithTag("navigation_learn").performTouchInput { click() }
