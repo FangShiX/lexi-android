@@ -97,6 +97,20 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
         MainDestination("stats", "统计", R.drawable.tab_chart_unselected, R.drawable.tab_chart_selected),
         MainDestination("profile", "我的", R.drawable.tab_setting_unselected, R.drawable.tab_setting_selected)
     )
+    fun openMainDestination(route: String) {
+        if (route == "learn") {
+            app.learningRepository.selectWords(emptyList())
+            // The start entry already exists. Restoring it after a direct library
+            // entry can restore the just-popped library stack instead.
+            navController.popBackStack("learn", inclusive = false, saveState = true)
+            return
+        }
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     Scaffold(
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
@@ -105,14 +119,7 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
                 com.finisdiscago.leximvp.core.ui.LexiBottomBar(
                     tabs = destinations.map { com.finisdiscago.leximvp.core.ui.LexiTab(it.route, it.label, it.icon, it.selectedIcon) },
                     selectedRoute = currentRoute, pending = pendingTaskCount,
-                    onSelect = { destination ->
-                        if (destination.route == "learn") app.learningRepository.selectWords(emptyList())
-                        navController.navigate(destination.route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
+                    onSelect = { destination -> openMainDestination(destination.route) }
                 )
             }
         }
@@ -131,8 +138,8 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
                     },
                     onStartReview = { navController.navigate("review") },
                     onOpenReading = { navController.navigate("articles") },
-                    onOpenBooks = { navController.navigate("books") { launchSingleTop = true } },
-                    onOpenStatistics = { navController.navigate("stats") { launchSingleTop = true } },
+                    onOpenBooks = { openMainDestination("books") },
+                    onOpenStatistics = { openMainDestination("stats") },
                     onTaskCountChange = { pendingTaskCount = it }
                 )
             }
@@ -143,7 +150,7 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
                     settingsRepository = app.settingsRepository,
                     autoPlayAudio = settings.autoPlayAudio,
                     onOpenReview = { navController.navigate("review") },
-                    onOpenContent = { navController.navigate("books") },
+                    onOpenContent = { openMainDestination("books") },
                     onOpenWord = { navController.navigate("entry/$it") }
                 )
             }
@@ -185,7 +192,7 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
                 ArticleListRoute(
                     repository = app.articleRepository,
                     documentImporter = app.documentImporter,
-                    onBackToBooks = { navController.navigate("books") },
+                    onBackToBooks = { openMainDestination("books") },
                     onOpenArticle = { articleId ->
                         navController.navigate("articles/$articleId")
                     }
@@ -230,9 +237,9 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
                 com.finisdiscago.leximvp.feature.profile.ProfileScreen(
                     settings = settings,
                     onOpenSettings = { navController.navigate("settings") },
-                    onOpenBooks = { navController.navigate("books") { launchSingleTop = true } },
+                    onOpenBooks = { openMainDestination("books") },
                     onOpenReading = { navController.navigate("articles") },
-                    onOpenStatistics = { navController.navigate("stats") { launchSingleTop = true } },
+                    onOpenStatistics = { openMainDestination("stats") },
                     onAdjustPlan = { navController.navigate("settings?section=learning") },
                     onOpenBackup = { navController.navigate("settings?section=data") }
                 )
@@ -242,7 +249,7 @@ private fun LexiNavigation(app: LexiApplication, settings: com.finisdiscago.lexi
                     repository = app.settingsRepository,
                     reminderScheduler = app.reminderScheduler,
                     backupService = app.backupService,
-                    onOpenVocabulary = { navController.navigate("books") },
+                    onOpenVocabulary = { openMainDestination("books") },
                     onBack = { navController.popBackStack() },
                     initialSection = when (entry.arguments?.getString("section")) { "learning" -> 1; "data" -> 2; else -> 0 }
                 )

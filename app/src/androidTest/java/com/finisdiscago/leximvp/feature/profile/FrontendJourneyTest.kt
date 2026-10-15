@@ -67,6 +67,14 @@ class FrontendJourneyTest {
         compose.onNodeWithText("每日任务").assertIsDisplayed()
     }
 
+    @Test fun firstLibraryEntryReturnsToExistingLearningHome() {
+        compose.onNodeWithText("选择词书 / 添加单词").performScrollTo().performTouchInput { click() }
+        compose.onNodeWithTag("navigation_books").assertIsSelected()
+        compose.onNodeWithTag("navigation_learn").performTouchInput { click() }
+        compose.onNodeWithTag("navigation_learn").assertIsSelected()
+        compose.onNodeWithText("选择词书 / 添加单词").performScrollTo().assertIsDisplayed()
+    }
+
     private fun capture(name: String) {
         val directory = File(compose.activity.getExternalFilesDir(null), "frontend-preview").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use {
