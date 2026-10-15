@@ -136,10 +136,12 @@ class ProductClosureJourneyTest {
 
         val scanPdf = importer.import(Uri.fromFile(buildScanPdf(File(fixtureDir, "scan.pdf"))))
         assertTrue(scanPdf.format in setOf("PDF-OCR", "PDF-MIXED"))
+        assertTrue("Scanned PDF must yield the rendered text", scanPdf.text.contains("READING", ignoreCase = true))
         assertEquals("pdf:page=0", scanPdf.chapters.single().locator)
 
         val image = importer.import(Uri.fromFile(buildImage(File(fixtureDir, "reading.png"))))
         assertEquals("IMAGE-OCR", image.format)
+        assertTrue("Image OCR must yield the rendered text", image.text.contains("READING", ignoreCase = true))
         assertEquals("image:0", image.chapters.single().locator)
 
         val mobi = importer.import(Uri.fromFile(buildMobi(File(fixtureDir, "classic.mobi"))))
