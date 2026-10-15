@@ -34,10 +34,12 @@ class LexiDatabaseMigrationTest {
     }
 
     @Test
-    fun migrateSixHandlesMalformedAndDuplicateLegacyIdsWithoutJsonSqlFunctions() {
+    fun legacyContentAndIdsSurvivePortableMigrations() {
         helper.createDatabase(TEST_DATABASE, 6).apply {
             execSQL("INSERT INTO vocabulary_books VALUES (1,'Legacy','','UserCreated',0,1,20,0,1,1,1)")
-            listOf("""{"id":"shared:legacy"}""", "invalid json", """{"id":"shared:legacy"}""").forEachIndexed { index, content ->
+            execSQL("INSERT INTO source_records VALUES (1,'legacy:source','Legacy','','Custom','Apache-2.0','{}',1,1)")
+            val rich = """{"id":"shared:legacy","tags":["IELTS","practice"],"senses":[{"partOfSpeech":"verb","meaningZh":"学习","definitionEn":"learn","contexts":["general"],"register":["neutral"],"examples":[{"en":"We learn daily.","zh":"我们每天学习。"}]}],"semanticNetwork":{"antonyms":[{"word":"legacy1","note":"preserved relation"}]}}"""
+            listOf(rich, "invalid json", """{"id":"shared:legacy"}""").forEachIndexed { index, content ->
                 execSQL("""INSERT INTO word_entries
                     (id,bookId,word,normalizedWord,meaning,richContentJson,sourceOrder,intakeStatus,proficiencyScore,createdAtEpochMillis,updatedAtEpochMillis)
                     VALUES (?,1,?,?,?, ?,?,'New',0,1,1)""",
@@ -45,7 +47,7 @@ class LexiDatabaseMigrationTest {
             }
             close()
         }
-        helper.runMigrationsAndValidate(TEST_DATABASE, 7, true, LexiDatabase.MIGRATION_6_7).use { db ->
+        helper.runMigrationsAndValidate(TEST_DATABASE, 9, true, LexiDatabase.MIGRATION_6_7, LexiDatabase.MIGRATION_7_8, LexiDatabase.MIGRATION_8_9).use { db ->
             db.query("SELECT id,stableId,meaning FROM word_entries ORDER BY id").use { rows ->
                 assertEquals(3, rows.count)
                 val ids = mutableSetOf<String>()
@@ -55,6 +57,20 @@ class LexiDatabaseMigrationTest {
                 }
                 assertTrue("shared:legacy" in ids)
                 assertTrue("lexi:en:legacy1" in ids)
+            }
+            db.query("SELECT meaningZh,registerJson FROM senses").use { rows ->
+                assertTrue(rows.moveToFirst()); assertEquals("学习", rows.getString(0)); assertEquals("[\"neutral\"]", rows.getString(1))
+            }
+            db.query("SELECT text,translation FROM examples").use { rows ->
+                assertTrue(rows.moveToFirst()); assertEquals("We learn daily.", rows.getString(0)); assertEquals("我们每天学习。", rows.getString(1))
+            }
+            db.query("SELECT targetWordId,note FROM entry_relations").use { rows ->
+                assertTrue(rows.moveToFirst()); assertEquals(2L, rows.getLong(0)); assertEquals("preserved relation", rows.getString(1))
+            }
+            db.query("SELECT category,value FROM entry_tags WHERE category != 'content_status'").use { rows ->
+                val tags = mutableSetOf<String>()
+                while(rows.moveToNext()) tags += "${rows.getString(0)}:${rows.getString(1)}"
+                assertEquals(setOf("exam:IELTS", "topic:practice", "register:neutral"), tags)
             }
         }
     }

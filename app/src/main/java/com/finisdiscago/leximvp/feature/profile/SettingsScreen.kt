@@ -92,6 +92,7 @@ fun SettingsRoute(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var selectedSection by rememberSaveable(initialSection) { mutableStateOf(initialSection.coerceIn(0, 2)) }
+    val sectionListState = remember(selectedSection) { androidx.compose.foundation.lazy.LazyListState() }
     var showHelp by rememberSaveable { mutableStateOf(false) }
     var busyOperation by remember { mutableStateOf<String?>(null) }
     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -178,6 +179,7 @@ fun SettingsRoute(
                 }
 
         LazyColumn(
+            state = sectionListState,
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

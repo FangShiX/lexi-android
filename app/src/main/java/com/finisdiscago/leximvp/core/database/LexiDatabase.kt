@@ -108,26 +108,7 @@ abstract class LexiDatabase : RoomDatabase() {
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_entry_tags_sourceId ON entry_tags(sourceId)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_entry_tags_category_value ON entry_tags(category, value)")
                 database.execSQL("INSERT OR IGNORE INTO entry_tags SELECT id, 'content_status', contentStatus, bookId, contentStatus FROM word_entries")
-                database.execSQL(
-                    """
-                    INSERT OR IGNORE INTO entry_tags
-                    SELECT w.id,
-                           CASE WHEN lower(CAST(t.value AS TEXT)) IN ('ielts','toefl','gre','netem','cet4','cet6') THEN 'exam' ELSE 'topic' END,
-                           CAST(t.value AS TEXT), w.bookId, w.contentStatus
-                    FROM word_entries w,
-                         json_each(CASE WHEN json_valid(w.richContentJson) THEN w.richContentJson ELSE '{}' END, '$.tags') t
-                    WHERE trim(CAST(t.value AS TEXT)) != ''
-                    """.trimIndent()
-                )
-                database.execSQL(
-                    """
-                    INSERT OR IGNORE INTO entry_tags
-                    SELECT s.wordId, 'register', CAST(r.value AS TEXT), w.bookId, s.status
-                    FROM senses s JOIN word_entries w ON w.id = s.wordId,
-                         json_each(CASE WHEN json_valid(s.registerJson) THEN s.registerJson ELSE '[]' END) r
-                    WHERE trim(CAST(r.value AS TEXT)) != ''
-                    """.trimIndent()
-                )
+                backfillTags(database)
             }
         }
 
@@ -578,48 +559,81 @@ abstract class LexiDatabase : RoomDatabase() {
             )
         }
 
+        private fun legacyObject(value: String?): org.json.JSONObject? =
+            value?.let { runCatching { org.json.JSONObject(it) }.getOrNull() }
+
+        private fun legacyText(value: org.json.JSONObject, key: String, fallback: String = ""): String =
+            if (value.isNull(key)) fallback else value.opt(key).toString()
+
+        private fun legacyTag(value: Any?): String? = when (value) {
+            null, org.json.JSONObject.NULL -> null
+            is Boolean -> if (value) "1" else "0"
+            else -> value.toString()
+        }?.takeIf { it.trim(' ').isNotEmpty() }
+
+        private fun backfillTags(database: SupportSQLiteDatabase) {
+            val exams = setOf("ielts", "toefl", "gre", "netem", "cet4", "cet6")
+            database.query("SELECT id,bookId,contentStatus,richContentJson FROM word_entries WHERE richContentJson IS NOT NULL").use { rows ->
+                while (rows.moveToNext()) {
+                    val tags = legacyObject(rows.getString(3))?.optJSONArray("tags") ?: continue
+                    for (index in 0 until tags.length()) {
+                        val value = legacyTag(tags.opt(index)) ?: continue
+                        val category = if (value.lowercase(java.util.Locale.ROOT) in exams) "exam" else "topic"
+                        database.execSQL("INSERT OR IGNORE INTO entry_tags VALUES (?,?,?,?,?)",
+                            arrayOf(rows.getLong(0), category, value, rows.getLong(1), rows.getString(2)))
+                    }
+                }
+            }
+            database.query("SELECT s.wordId,w.bookId,s.status,s.registerJson FROM senses s JOIN word_entries w ON w.id=s.wordId").use { rows ->
+                while (rows.moveToNext()) {
+                    val tags = runCatching { org.json.JSONArray(rows.getString(3)) }.getOrNull() ?: continue
+                    for (index in 0 until tags.length()) {
+                        val value = legacyTag(tags.opt(index)) ?: continue
+                        database.execSQL("INSERT OR IGNORE INTO entry_tags VALUES (?,'register',?,?,?)",
+                            arrayOf(rows.getLong(0), value, rows.getLong(1), rows.getString(2)))
+                    }
+                }
+            }
+        }
+
         private fun backfillStructuredContent(database: SupportSQLiteDatabase) {
-            database.execSQL(
-                """
-                INSERT OR IGNORE INTO senses
-                SELECT w.stableId || ':sense:' || s.key, w.id, CAST(s.key AS INTEGER),
-                       COALESCE(json_extract(s.value, '$.partOfSpeech'), ''),
-                       COALESCE(json_extract(s.value, '$.meaningZh'), ''),
-                       COALESCE(json_extract(s.value, '$.definitionEn'), ''),
-                       COALESCE(json_extract(s.value, '$.contexts'), '[]'),
-                       COALESCE(json_extract(s.value, '$.register'), '[]'),
-                       COALESCE(json_extract(s.value, '$.semanticBoundary'), ''),
-                       w.contentStatus, '', 1
-                FROM word_entries w,
-                     json_each(CASE WHEN json_valid(w.richContentJson) THEN w.richContentJson ELSE '{}' END, '$.senses') s
-                """.trimIndent()
-            )
-            database.execSQL(
-                """
-                INSERT OR IGNORE INTO examples
-                SELECT w.stableId || ':sense:' || s.key || ':example:' || e.key,
-                       w.id, w.stableId || ':sense:' || s.key, CAST(e.key AS INTEGER),
-                       COALESCE(json_extract(e.value, '$.en'), ''),
-                       COALESCE(json_extract(e.value, '$.zh'), ''), '', w.contentStatus, 1
-                FROM word_entries w,
-                     json_each(CASE WHEN json_valid(w.richContentJson) THEN w.richContentJson ELSE '{}' END, '$.senses') s,
-                     json_each(s.value, '$.examples') e
-                WHERE trim(COALESCE(json_extract(e.value, '$.en'), '')) != ''
-                """.trimIndent()
-            )
-            listOf("antonyms", "hypernyms", "hyponyms").forEach { relation ->
-                database.execSQL(
-                    """
-                    INSERT OR IGNORE INTO entry_relations
-                    SELECT w.stableId || ':relation:$relation:' || r.key, w.id,
-                           (SELECT id FROM word_entries t WHERE t.normalizedWord = lower(json_extract(r.value, '$.word')) LIMIT 1),
-                           COALESCE(json_extract(r.value, '$.word'), ''), '$relation', 'outgoing', NULL,
-                           COALESCE(json_extract(r.value, '$.note'), ''), w.contentStatus, '', 1
-                    FROM word_entries w,
-                         json_each(CASE WHEN json_valid(w.richContentJson) THEN w.richContentJson ELSE '{}' END, '$.semanticNetwork.$relation') r
-                    WHERE trim(COALESCE(json_extract(r.value, '$.word'), '')) != ''
-                    """.trimIndent()
-                )
+            database.query("SELECT id,stableId,contentStatus,richContentJson FROM word_entries WHERE richContentJson IS NOT NULL").use { rows ->
+                while (rows.moveToNext()) {
+                    val payload = legacyObject(rows.getString(3)) ?: continue
+                    val wordId = rows.getLong(0)
+                    val stableId = rows.getString(1)
+                    val status = rows.getString(2)
+                    val senses = payload.optJSONArray("senses") ?: org.json.JSONArray()
+                    for (index in 0 until senses.length()) {
+                        val sense = senses.optJSONObject(index) ?: continue
+                        val senseId = "$stableId:sense:$index"
+                        database.execSQL("INSERT OR IGNORE INTO senses VALUES (?,?,?,?,?,?,?,?,?,?,?,1)",
+                            arrayOf(senseId, wordId, index, legacyText(sense,"partOfSpeech"), legacyText(sense,"meaningZh"),
+                                legacyText(sense,"definitionEn"), legacyText(sense,"contexts","[]"), legacyText(sense,"register","[]"),
+                                legacyText(sense,"semanticBoundary"), status, ""))
+                        val examples = sense.optJSONArray("examples") ?: continue
+                        for (exampleIndex in 0 until examples.length()) {
+                            val example = examples.optJSONObject(exampleIndex) ?: continue
+                            val text = legacyText(example,"en")
+                            if (text.trim(' ').isEmpty()) continue
+                            database.execSQL("INSERT OR IGNORE INTO examples VALUES (?,?,?,?,?,?,?, ?,1)",
+                                arrayOf("$senseId:example:$exampleIndex", wordId, senseId, exampleIndex, text, legacyText(example,"zh"), "", status))
+                        }
+                    }
+                    val network = payload.optJSONObject("semanticNetwork") ?: continue
+                    for (type in listOf("antonyms", "hypernyms", "hyponyms")) {
+                        val relations = network.optJSONArray(type) ?: continue
+                        for (index in 0 until relations.length()) {
+                            val relation = relations.optJSONObject(index) ?: continue
+                            val target = legacyText(relation,"word")
+                            if (target.trim(' ').isEmpty()) continue
+                            val targetId = database.query("SELECT id FROM word_entries WHERE normalizedWord=? LIMIT 1",
+                                arrayOf(target.lowercase(java.util.Locale.ROOT))).use { match -> if (match.moveToFirst()) match.getLong(0) else null }
+                            database.execSQL("INSERT OR IGNORE INTO entry_relations VALUES (?,?,?,?,?,'outgoing',NULL,?,?,?,1)",
+                                arrayOf("$stableId:relation:$type:$index", wordId, targetId, target, type, legacyText(relation,"note"), status, ""))
+                        }
+                    }
+                }
             }
         }
     }
