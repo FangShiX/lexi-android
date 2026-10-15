@@ -2,6 +2,7 @@ package com.finisdiscago.leximvp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -54,6 +55,7 @@ import com.finisdiscago.leximvp.core.ui.LexiTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         val app = application as LexiApplication
         setContent {
             val settings by app.settingsRepository.settings.collectAsStateWithLifecycle(

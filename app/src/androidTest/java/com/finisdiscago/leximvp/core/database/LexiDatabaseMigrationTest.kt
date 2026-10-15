@@ -34,6 +34,32 @@ class LexiDatabaseMigrationTest {
     }
 
     @Test
+    fun migrateSixHandlesMalformedAndDuplicateLegacyIdsWithoutJsonSqlFunctions() {
+        helper.createDatabase(TEST_DATABASE, 6).apply {
+            execSQL("INSERT INTO vocabulary_books VALUES (1,'Legacy','','UserCreated',0,1,20,0,1,1,1)")
+            listOf("""{"id":"shared:legacy"}""", "invalid json", """{"id":"shared:legacy"}""").forEachIndexed { index, content ->
+                execSQL("""INSERT INTO word_entries
+                    (id,bookId,word,normalizedWord,meaning,richContentJson,sourceOrder,intakeStatus,proficiencyScore,createdAtEpochMillis,updatedAtEpochMillis)
+                    VALUES (?,1,?,?,?, ?,?,'New',0,1,1)""",
+                    arrayOf(index + 1, "legacy$index", "legacy$index", "meaning $index", content, index))
+            }
+            close()
+        }
+        helper.runMigrationsAndValidate(TEST_DATABASE, 7, true, LexiDatabase.MIGRATION_6_7).use { db ->
+            db.query("SELECT id,stableId,meaning FROM word_entries ORDER BY id").use { rows ->
+                assertEquals(3, rows.count)
+                val ids = mutableSetOf<String>()
+                while (rows.moveToNext()) {
+                    assertTrue(ids.add(rows.getString(1)))
+                    assertEquals("meaning ${rows.getInt(0) - 1}", rows.getString(2))
+                }
+                assertTrue("shared:legacy" in ids)
+                assertTrue("lexi:en:legacy1" in ids)
+            }
+        }
+    }
+
+    @Test
     fun migrateThreeToFourPreservesSchemaAndAddsWorkspaceRecords() {
         helper.createDatabase(TEST_DATABASE, 3).close()
         helper.runMigrationsAndValidate(TEST_DATABASE, 4, true, LexiDatabase.MIGRATION_3_4).close()

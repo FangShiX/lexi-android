@@ -23,3 +23,27 @@ scripts/__pycache__/
 *.log
 .env.*
 qemu-system-*.log
+
+# Private builds, personal material and local verification outputs
+*.apk
+*.aab
+*.apks
+*.idsig
+*.pfx
+*.dpapi
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.lexibackup
+*.lexipack
+!app/src/main/assets/starter.lexipack
+*.epub
+*.mobi
+*.azw
+*.azw3
+*.pdf
+candidate/
+signed-candidate/
+device-reports/
+release-device-reports/

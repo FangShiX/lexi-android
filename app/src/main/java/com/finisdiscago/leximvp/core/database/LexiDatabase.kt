@@ -154,18 +154,27 @@ abstract class LexiDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE word_entries ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
                 database.execSQL("ALTER TABLE word_entries ADD COLUMN entryKind TEXT NOT NULL DEFAULT 'word'")
                 database.execSQL("ALTER TABLE word_entries ADD COLUMN contentStatus TEXT NOT NULL DEFAULT 'unverified'")
-                database.execSQL(
-                    """
-                    UPDATE word_entries
-                    SET stableId = CASE
-                        WHEN richContentJson IS NOT NULL
-                         AND json_valid(richContentJson)
-                         AND trim(COALESCE(json_extract(richContentJson, '$.id'), '')) != ''
-                        THEN json_extract(richContentJson, '$.id')
-                        ELSE 'lexi:en:' || normalizedWord
-                    END
-                    """.trimIndent()
-                )
+                // Android 8 SQLite does not include JSON1. Parse legacy payloads
+                // in Kotlin and stream the updates without losing any word rows.
+                val usedIds = mutableSetOf<String>()
+                database.compileStatement("UPDATE word_entries SET stableId = ? WHERE id = ?").use { update ->
+                    database.query("SELECT id, normalizedWord, richContentJson FROM word_entries ORDER BY id").use { rows ->
+                        while (rows.moveToNext()) {
+                            val id = rows.getLong(0)
+                            val fallback = "lexi:en:${rows.getString(1)}"
+                            val fromPayload = if (rows.isNull(2)) null else runCatching {
+                                org.json.JSONObject(rows.getString(2)).optString("id").takeIf { it.trim(' ').isNotEmpty() }
+                            }.getOrNull()
+                            var stableId = fromPayload ?: fallback
+                            if (stableId in usedIds) stableId = "$fallback:$id"
+                            while (!usedIds.add(stableId)) stableId += ":$id"
+                            update.clearBindings()
+                            update.bindString(1, stableId)
+                            update.bindLong(2, id)
+                            update.executeUpdateDelete()
+                        }
+                    }
+                }
                 database.execSQL("UPDATE word_entries SET entryKind = 'phrase' WHERE instr(trim(word), ' ') > 0")
                 database.execSQL("UPDATE word_entries SET contentStatus = 'incomplete' WHERE trim(meaning) = ''")
                 database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_word_entries_stableId ON word_entries(stableId)")

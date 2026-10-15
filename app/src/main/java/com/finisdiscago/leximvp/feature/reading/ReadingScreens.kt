@@ -464,7 +464,15 @@ private fun ReadingText(
                     )
                 }
                 is ReaderBlock.ImageBlock -> {
-                    val bitmap = remember(block.path) { BitmapFactory.decodeFile(File(context.filesDir, block.path).absolutePath) }
+                    val bitmap = remember(block.path) {
+                        val path = File(context.filesDir, block.path).absolutePath
+                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeFile(path, bounds)
+                        val options = BitmapFactory.Options().apply {
+                            inSampleSize = com.finisdiscago.leximvp.core.document.imageSampleSize(bounds.outWidth.coerceAtLeast(1), bounds.outHeight.coerceAtLeast(1))
+                        }
+                        BitmapFactory.decodeFile(path, options)
+                    }
                     if (bitmap != null) {
                         Image(
                             bitmap = bitmap.asImageBitmap(),

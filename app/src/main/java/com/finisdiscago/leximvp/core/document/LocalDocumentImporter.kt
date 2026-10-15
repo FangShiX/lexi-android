@@ -217,12 +217,13 @@ class LocalDocumentImporter(private val context: Context) {
                     currentCoroutineContext().ensureActive()
                     var text = textPages?.getOrNull(index).orEmpty()
                     if (text.isBlank()) renderer.openPage(index).use { page ->
-                            val scale = (1600f / page.width).coerceIn(1f, 3f)
-                            val bitmap = Bitmap.createBitmap((page.width * scale).toInt(), (page.height * scale).toInt(), Bitmap.Config.ARGB_8888)
-                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
-                            bitmap.recycle()
-                            ocrPages++
+                            val (width, height) = ocrBitmapSize(page.width, page.height)
+                            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                            try {
+                                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
+                                ocrPages++
+                            } finally { bitmap.recycle() }
                     }
                     chapters += ImportedChapter("第 ${index + 1} 页", text, "pdf:page=$index")
                     progress(index + 1, renderer.pageCount)
@@ -282,10 +283,29 @@ class LocalDocumentImporter(private val context: Context) {
     }
 
     private suspend fun importImage(uri: Uri, title: String): ImportedDocument {
-        val image = InputImage.fromFilePath(context, uri)
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri).use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw DocumentImportException("无法识别图像尺寸")
+        val options = android.graphics.BitmapFactory.Options().apply { inSampleSize = imageSampleSize(bounds.outWidth, bounds.outHeight) }
+        val decoded = resolver.openInputStream(uri).use { android.graphics.BitmapFactory.decodeStream(it, null, options) }
+            ?: throw DocumentImportException("无法解码图像")
+        val orientation = runCatching { resolver.openInputStream(uri).use { android.media.ExifInterface(requireNotNull(it)).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1) } }.getOrDefault(1)
+        val matrix = android.graphics.Matrix().apply {
+            when (orientation) {
+                2 -> setScale(-1f, 1f)
+                3 -> setRotate(180f)
+                4 -> setScale(1f, -1f)
+                5 -> { setRotate(90f); postScale(-1f, 1f) }
+                6 -> setRotate(90f)
+                7 -> { setRotate(270f); postScale(-1f, 1f) }
+                8 -> setRotate(270f)
+            }
+        }
+        val bitmap = if (matrix.isIdentity) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+        if (bitmap !== decoded) decoded.recycle()
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        return try { ImportedDocument(title, "IMAGE-OCR", listOf(ImportedChapter("图像", recognizer.process(image).await().text, "image:0")), listOf("文字由本地 OCR 提取。")) }
-        finally { recognizer.close() }
+        return try { ImportedDocument(title, "IMAGE-OCR", listOf(ImportedChapter("图像", recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text, "image:0")), listOf("文字由本地 OCR 提取；超大图像会缩小，请校正识别结果。")) }
+        finally { recognizer.close(); bitmap.recycle() }
     }
 
     private fun importText(uri: Uri, title: String, extension: String): ImportedDocument {

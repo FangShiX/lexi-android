@@ -169,19 +169,19 @@ fun SettingsRoute(
         topBar = { LexiTopBar("设置", onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
                     listOf("外观", "学习", "数据").forEachIndexed { index, label ->
                         SegmentedButton(selected = selectedSection == index, onClick = { selectedSection = index },
                             shape = SegmentedButtonDefaults.itemShape(index, 3), label = { Text(label) })
                     }
                 }
-            }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             if (selectedSection == 1) item {
                 SettingsCard("每日任务") {
                     StepperRow(
@@ -290,12 +290,6 @@ fun SettingsRoute(
                 }
             }
             if (selectedSection == 2) item {
-                SettingsCard("来源与许可") {
-                    Text("导入前请确认内容来源与使用许可。资料仅在设备上处理，不上传到开发者服务器。")
-                    TextButton(onClick = { showHelp = true }) { Text("使用帮助、隐私与开源许可") }
-                }
-            }
-            if (selectedSection == 2) item {
                 DataSafetyCard(
                     enabled = busyOperation == null,
                     onExport = {
@@ -310,6 +304,13 @@ fun SettingsRoute(
                     }
                 )
             }
+            if (selectedSection == 2) item {
+                SettingsCard("来源与许可") {
+                    Text("导入前请确认内容来源与使用许可。资料仅在设备上处理，不上传到开发者服务器。")
+                    TextButton(onClick = { showHelp = true }) { Text("使用帮助、隐私与开源许可") }
+                }
+            }
+        }
         }
     }
 
