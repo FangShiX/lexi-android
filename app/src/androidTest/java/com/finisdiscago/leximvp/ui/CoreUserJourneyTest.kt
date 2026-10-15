@@ -216,6 +216,9 @@ class CoreUserJourneyTest {
         compose.onNodeWithText("输入单词").performTextInput("adapt")
         compose.onNodeWithTag(LexiTestTags.ReviewReveal).performClick()
         compose.onNodeWithTag(LexiTestTags.ReviewRateGood).performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.runOnIdle { repository.recordedRating == ReviewRating.Good }
+        }
         compose.runOnIdle {
             assertEquals(ReviewRating.Good, repository.recordedRating)
         }
