@@ -1,0 +1,10 @@
+Lexi Android
+Copyright 2026 FangShiX and contributors.
+
+UI portions adapted from Google Jetsnack (Apache-2.0) and Compose-Settings (MIT).
+Copyright notices, licenses, source commits and original files are preserved in
+vendor/ui/ and app/src/main/assets/licenses/.
+
+Dependencies include AndroidX/Jetpack Compose, Kotlin, PDFBox-Android/FontBox,
+and Google's bundled ML Kit text recognition SDK, under their respective terms.
+The included starter vocabulary is project-authored example content, Apache-2.0.

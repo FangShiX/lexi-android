@@ -1,0 +1,13 @@
+Google Jetsnack UI portions
+Copyright 2020-2025 The Android Open Source Project
+Licensed under Apache License 2.0 (jetsnack.txt).
+Adapted icon/text animation and measurement to Lexi theme/navigation/badges.
+Upstream: https://github.com/android/compose-samples
+Commit: 5a390e4a9d3c4e5b30e942041bde93582c4d9492
+
+Compose-Settings UI portions
+Copyright (c) 2021 Bernat Borras Paronella
+Licensed under MIT (compose-settings.txt).
+Adapted SettingsMenuLink slot/click/semantics; inlined Material 3 tile scaffold.
+Upstream: https://github.com/alorma/Compose-Settings
+Commit: 32fc52c0f339a5c48547e04f8f2b23397c16e5f7

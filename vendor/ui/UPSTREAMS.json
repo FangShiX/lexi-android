@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Google Jetsnack",
+    "repository": "https://github.com/android/compose-samples",
+    "commit": "5a390e4a9d3c4e5b30e942041bde93582c4d9492",
+    "license": "Apache-2.0",
+    "original": "Jetsnack/app/src/main/java/com/example/jetsnack/ui/home/Home.kt",
+    "reused": "BottomNavigationItem, BottomNavItemLayout, placeTextAndIcon",
+    "adaptations": "Local theme, spring animation compatibility, tab callbacks, badge, 48dp touch targets, weighted row shell",
+    "originalSha256": "50d4b86c80d4e7e40fbbead4f404b77734241483cffe37713fde31bb7442c9b4"
+  },
+  {
+    "name": "Compose-Settings",
+    "repository": "https://github.com/alorma/Compose-Settings",
+    "commit": "32fc52c0f339a5c48547e04f8f2b23397c16e5f7",
+    "license": "MIT",
+    "original": "ui-tiles/src/commonMain/kotlin/com/alorma/compose/settings/ui/SettingsMenuLink.kt",
+    "reused": "SettingsMenuLink slot/click/semantics structure",
+    "adaptations": "Default enabled=true; inline Surface/ListItem scaffold to retain existing Compose dependencies",
+    "originalSha256": "86f92aa6d80b44476740db39fbcc0d355b3a6bfa360b19152e6181ce2af0d238"
+  }
+]
