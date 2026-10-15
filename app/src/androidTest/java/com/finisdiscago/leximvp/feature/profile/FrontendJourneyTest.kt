@@ -30,7 +30,14 @@ class FrontendJourneyTest {
     }
 
     @Test fun profileSettingsThemeAndBackNavigation() {
-        compose.onNodeWithTag("navigation_profile").performClick()
+        // Dispatch touch coordinates as a finger would; semantics-only clicks can
+        // miss hit-test regressions in custom animated layouts.
+        compose.onNodeWithTag("navigation_books").performTouchInput { click() }
+        compose.onNodeWithTag("navigation_books").assertIsSelected()
+        compose.onNodeWithTag("navigation_learn").performTouchInput { click() }
+        compose.onNodeWithTag("navigation_learn").assertIsSelected()
+        compose.onNodeWithTag("navigation_profile").performTouchInput { click() }
+        compose.onNodeWithTag("navigation_profile").assertIsSelected()
         compose.onNodeWithText("我的学习计划").assertIsDisplayed()
         capture("profile-day")
         compose.onNodeWithContentDescription("打开设置").performClick()

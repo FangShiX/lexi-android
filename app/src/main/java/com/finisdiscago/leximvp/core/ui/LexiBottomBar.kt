@@ -67,14 +67,21 @@ fun LexiBottomNavigationItem(
         if (selected) 1f else 0f, animSpec,
         label = "animation progress",
     )
-    LexiBottomNavItemLayout(
-        icon = icon,
-        text = text,
-        animationProgress = animationProgress,
-        modifier = modifier
-            .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.Tab, onClick = onSelected)
-            .wrapContentSize(),
-    )
+    Box(
+        modifier = modifier.selectable(
+            selected = selected,
+            role = androidx.compose.ui.semantics.Role.Tab,
+            onClick = onSelected,
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        LexiBottomNavItemLayout(
+            icon = icon,
+            text = text,
+            animationProgress = animationProgress,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
 }
 
 @Composable
